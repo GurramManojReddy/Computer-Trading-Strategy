@@ -2,6 +2,8 @@ initialequity<-25000                 # starting money
 maxtradepct<-0.10                    # maximum value of any single trade
 maxdaytrades<-10                     # maximum trades in one day
 
+sentiments <- read.csv("sentiments.csv")
+
 genTrades=function(candidates,equity){
   cashin<-0
   cashout<-0
@@ -34,7 +36,56 @@ genTrades=function(candidates,equity){
 
 # **************************************** APPLY RULES ********************************************************************
 
-applyRules=function(day,equity){
+applyRules <- function(day, equity) {
+  # Load sentiment data if it hasn't been loaded yet
+  if (!exists("sentiment_data")) {
+    sentiment_data <- read.csv("sentiments.csv")
+  }
+  
+  cashin <- 0
+  cashout <- 0
+  transcost <- 0
+  
+  # Get long candidates for the day
+  candidates <- subset(signals, signals$date == day & signals$long == 1)
+  
+  # Filter candidates based on sentiment (only those with sentiment >= 0)
+  if (nrow(candidates) > 0) {
+    candidates <- candidates %>%
+      inner_join(sentiment_data, by = "symbol") %>%
+      filter(sentiment >= 0)
+  }
+  
+  # Generate trades for long positions
+  longs <- genTrades(candidates, equity)
+  equity <- equity + longs$cashin - longs$cashout - longs$transcost
+  
+  # Get short candidates for the day
+  candidates <- subset(signals, signals$date == day & signals$short == 1)
+  candidates$prediction <- 2 - candidates$prediction
+  
+  # Filter short candidates based on sentiment
+  if (nrow(candidates) > 0) {
+    candidates <- candidates %>%
+      inner_join(sentiment_data, by = "symbol") %>%
+      filter(sentiment >= 0)
+  }
+  
+  # Generate trades for short positions
+  shorts <- genTrades(candidates, equity)
+  
+  cashin = longs$cashin + shorts$cashin
+  cashout = longs$cashout + shorts$cashout + longs$transcost + shorts$transcost
+  transcost = longs$transcost + shorts$transcost
+  
+  return(list(long = longs$trades, 
+              short = shorts$trades, 
+              cashin = cashin, 
+              cashout = cashout, 
+              transcost = transcost))
+}
+
+applyRules_without_sentiment=function(day,equity){
   cashin<-0
   cashout<-0
   transcost<-0
@@ -123,7 +174,7 @@ stopday<-length(tdays)
 for (day in startday:stopday) {                 # start of our loop
   currdate<-tdays[day]
   print(currdate)                              # simple update to screen on our progress
-  results<-applyRules(currdate,currentcash)    # our state variables are the date and cash available
+  results<-applyRules_without_sentiment(currdate,currentcash)    # our state variables are the date and cash available
   currentcash<-currentcash+results$cashin-results$cashout  # update our cash position at end of day
   pvalue[day]<-currentcash
   if (!is.null(closed)) {
