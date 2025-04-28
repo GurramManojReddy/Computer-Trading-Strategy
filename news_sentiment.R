@@ -22,7 +22,7 @@ analyze_sentiment <- function(article_titles) {
 }
 
 # Set your API key
-api_key <- "2ffc1c4ea2e84fb6b9f6fafd242e4cdd"
+api_key <- "2ffc1c4ea2e84fb6b9f6fafd242e4cddgjkfl,fkuvtg"
 
 # Read stock symbols (assumed in a column named 'x')
 sp500_symbols <- read.csv("symbols.csv", stringsAsFactors = FALSE)$x
